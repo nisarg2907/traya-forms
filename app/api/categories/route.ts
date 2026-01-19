@@ -1,14 +1,29 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
+// In-memory cache for categories (since categories don't change)
+let categoriesCache: any[] | null = null
+
 // GET /api/categories - Fetch all categories
 export async function GET() {
   try {
+    // Return cached categories if available
+    if (categoriesCache !== null) {
+      return NextResponse.json({
+        success: true,
+        data: categoriesCache,
+      })
+    }
+
+    // Fetch from database if not cached
     const categories = await prisma.category.findMany({
       orderBy: {
         order: 'asc',
       },
     })
+
+    // Cache the categories
+    categoriesCache = categories
 
     return NextResponse.json({
       success: true,

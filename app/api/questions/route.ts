@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server'
 import prisma from '@/lib/prisma'
 
+// In-memory cache for questions (since questions don't change)
+let questionsCache: any[] | null = null
+
 // GET /api/questions - Fetch all questions with their options, ordered by section and order
 export async function GET() {
   try {
+    // Return cached questions if available
+    if (questionsCache !== null) {
+      return NextResponse.json({
+        success: true,
+        data: questionsCache,
+      })
+    }
+
+    // Fetch from database if not cached
     const questions = await prisma.question.findMany({
       include: {
         options: {
@@ -18,6 +30,9 @@ export async function GET() {
         { order: 'asc' },
       ],
     })
+
+    // Cache the questions
+    questionsCache = questions
 
     return NextResponse.json({
       success: true,
