@@ -1,0 +1,41 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FormSubmission {
+  id        String   @id @default(uuid())
+
+  // About You section
+  name      String
+  gender    String   // 'male' | 'female'
+  age       Int
+  phone     String
+
+  // Hair Health section
+  hairLossStage      String   // e.g., 'stage-1', 'stage-2', etc.
+  familyHistory      String   // 'mother' | 'father' | 'both' | 'none'
+  dandruff           String   // 'no' | 'mild' | 'heavy' | 'diagnosed'
+  supplements        String   // 'yes' | 'no'
+
+  // Internal Health section
+  sleep              String   // 'peaceful' | 'disturbed' | 'difficulty'
+  stress             String   // 'none' | 'low' | 'moderate' | 'high'
+  constipation       String   // 'no' | 'yes' | 'unable' | 'ibs'
+  energyLevels       String   // 'always-high' | 'low-morning' | 'low-afternoon' | 'low-evening' | 'always-low'
+  gasAcidityBloating String   // 'no' | 'sometimes' | 'often'
+
+  // Scalp Assessment section
+  scalpPhoto         String?  // Path to uploaded file
+
+  // Metadata
+  submittedAt        DateTime @default(now())
+  ipAddress          String?
+
+  @@map("form_submissions")
+}
+
