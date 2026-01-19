@@ -36,36 +36,21 @@ export function useQuizData() {
 
   useEffect(() => {
     async function fetchData() {
-      const startTime = Date.now()
-      console.log('[Quiz Data] 🚀 Starting to fetch quiz data...')
-      
       try {
         setLoading(true)
         
         // Fetch questions and categories in parallel
-        const fetchStartTime = Date.now()
         const [questionsRes, categoriesRes] = await Promise.all([
           fetch('/api/questions'),
           fetch('/api/categories'),
         ])
-        const fetchTime = Date.now() - fetchStartTime
-        console.log(`[Quiz Data] ⏱️ Fetch requests completed in ${fetchTime}ms`)
 
         if (!questionsRes.ok || !categoriesRes.ok) {
           throw new Error('Failed to fetch quiz data')
         }
 
-        const parseStartTime = Date.now()
         const questionsData = await questionsRes.json()
         const categoriesData = await categoriesRes.json()
-        const parseTime = Date.now() - parseStartTime
-        console.log(`[Quiz Data] ⏱️ JSON parsing completed in ${parseTime}ms`)
-        
-        const cacheStatus = {
-          questions: questionsRes.headers.get('X-Cache') || 'UNKNOWN',
-          categories: categoriesRes.headers.get('X-Cache') || 'UNKNOWN',
-        }
-        console.log(`[Quiz Data] 📦 Cache status:`, cacheStatus)
 
         // Transform questions to match expected format
         const transformedQuestions: QuizQuestion[] = questionsData.data.map((q: any) => {
@@ -98,19 +83,11 @@ export function useQuizData() {
           }
         })
 
-        const transformStartTime = Date.now()
         setQuestions(transformedQuestions)
         setCategories(categoriesData.data)
-        const transformTime = Date.now() - transformStartTime
-        console.log(`[Quiz Data] ⏱️ Data transformation completed in ${transformTime}ms`)
-        
-        const totalTime = Date.now() - startTime
-        console.log(`[Quiz Data] ✅ Total time: ${totalTime}ms (${transformedQuestions.length} questions, ${categoriesData.data.length} categories)`)
-        
         setError(null)
       } catch (err) {
-        const totalTime = Date.now() - startTime
-        console.error(`[Quiz Data] ❌ Error after ${totalTime}ms:`, err)
+        console.error('Error fetching quiz data:', err)
         setError(err instanceof Error ? err.message : 'Failed to load quiz')
         // Fallback to static data if API fails
         const { questions: staticQuestions, sections } = await import('./quiz-data')

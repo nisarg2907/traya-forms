@@ -19,7 +19,6 @@ type SavedQuizState = {
 // Helper function to check if localStorage is available
 const isLocalStorageAvailable = (): boolean => {
   if (typeof window === "undefined") {
-    console.log("[localStorage] window is undefined (SSR)");
     return false;
   }
   
@@ -27,71 +26,52 @@ const isLocalStorageAvailable = (): boolean => {
     const test = "__localStorage_test__";
     window.localStorage.setItem(test, test);
     window.localStorage.removeItem(test);
-    console.log("[localStorage] ✅ Available and working");
     return true;
-  } catch (error) {
-    console.error("[localStorage] ❌ Not available:", error);
+  } catch {
     return false;
   }
 };
 
 // Safe localStorage getter
 const safeGetItem = (key: string): string | null => {
-  console.log(`[localStorage] Getting item: ${key}`);
-  
   if (!isLocalStorageAvailable()) {
-    console.warn(`[localStorage] ⚠️ Cannot get ${key} - localStorage not available`);
     return null;
   }
   
   try {
-    const value = window.localStorage.getItem(key);
-    console.log(`[localStorage] ✅ Got ${key}:`, value ? `${value.substring(0, 50)}...` : "null");
-    return value;
+    return window.localStorage.getItem(key);
   } catch (error) {
-    console.error(`[localStorage] ❌ Error getting ${key}:`, error);
+    console.error(`Error getting ${key} from localStorage:`, error);
     return null;
   }
 };
 
 // Safe localStorage setter
 const safeSetItem = (key: string, value: string): boolean => {
-  console.log(`[localStorage] Setting item: ${key}`, `(value length: ${value.length})`);
-  
   if (!isLocalStorageAvailable()) {
-    console.warn(`[localStorage] ⚠️ Cannot set ${key} - localStorage not available`);
     return false;
   }
   
   try {
     window.localStorage.setItem(key, value);
-    console.log(`[localStorage] ✅ Successfully set ${key}`);
     return true;
   } catch (error) {
-    console.error(`[localStorage] ❌ Error setting ${key}:`, error);
-    // Check if it's a quota error
-    if (error instanceof DOMException && error.code === 22) {
-      console.error(`[localStorage] 💾 Storage quota exceeded!`);
-    }
+    console.error(`Error setting ${key} to localStorage:`, error);
     return false;
   }
 };
 
 // Safe localStorage remover
 const safeRemoveItem = (key: string): boolean => {
-  console.log(`[localStorage] Removing item: ${key}`);
-  
   if (!isLocalStorageAvailable()) {
-    console.warn(`[localStorage] ⚠️ Cannot remove ${key} - localStorage not available`);
     return false;
   }
   
   try {
     window.localStorage.removeItem(key);
-    console.log(`[localStorage] ✅ Successfully removed ${key}`);
     return true;
   } catch (error) {
-    console.error(`[localStorage] ❌ Error removing ${key}:`, error);
+    console.error(`Error removing ${key} from localStorage:`, error);
     return false;
   }
 };
@@ -188,7 +168,6 @@ export function HairQuiz() {
       } else if (hasAnyAnswers) {
         // If they have answers but haven't reached stage 2, automatically restore them
         // This handles the case where user answered the first question and refreshed
-        console.log("[Quiz] Auto-restoring saved answers (early stage)", parsed.answers);
         setAnswers(parsed.answers);
         setCurrentIndex(firstUnansweredIndex);
         // Don't remove the state - keep it so progress is preserved
@@ -219,13 +198,11 @@ export function HairQuiz() {
   useEffect(() => {
     // Don't persist if we're currently restoring state (prevents overwriting saved state)
     if (isRestoringRef.current) {
-      console.log("[Quiz] Skipping persist - currently restoring state");
       return;
     }
 
     // Don't persist until we've checked for saved state (prevents overwriting on initial mount)
     if (!hasCheckedSavedStateRef.current && questions.length > 0) {
-      console.log("[Quiz] Skipping persist - haven't checked for saved state yet");
       return;
     }
 
@@ -240,7 +217,6 @@ export function HairQuiz() {
     if (Object.keys(answers).length === 0) {
       const saved = safeGetItem("hairQuizState");
       if (saved) {
-        console.log("[Quiz] Skipping persist - empty answers but saved state exists");
         return;
       }
     }
