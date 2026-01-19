@@ -43,6 +43,13 @@ export const questions: QuizQuestion[] = [
     disclaimer: "*Your contact details will be used by Traya hair coach to reach out to you via call/sms/whatsapp.",
   },
   {
+    id: "age",
+    section: 1,
+    question: "How old are you?",
+    type: "text",
+    placeholder: "",
+  },
+  {
     id: "gender",
     section: 1,
     question: "Gender",
