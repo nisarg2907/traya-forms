@@ -106,6 +106,7 @@ export function HairQuiz() {
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const savedStateRef = useRef<SavedQuizState | null>(null);
   const isRestoringRef = useRef(false); // Flag to prevent persist during restore
+  const hasCheckedSavedStateRef = useRef(false); // Flag to track if we've checked for saved state
 
   // On mount, if the quiz was submitted in this browser, show the completed screen
   useEffect(() => {
@@ -118,25 +119,31 @@ export function HairQuiz() {
   // Load saved quiz state from localStorage (up to 10 days old)
   // Only show resume prompt if user has reached at least section 2 (Hair Health)
   useEffect(() => {
-    if (questions.length === 0) return;
+    if (questions.length === 0) {
+      // Set restoring flag while waiting for questions to load
+      isRestoringRef.current = true;
+      return;
+    }
+
+    // Set restoring flag early to prevent persist effect from overwriting
+    isRestoringRef.current = true;
 
     // If quiz is already submitted in this browser, don't show resume prompt
     const submitted = safeGetItem("hairQuizSubmitted");
     if (submitted === "true") {
       isRestoringRef.current = false;
+      hasCheckedSavedStateRef.current = true;
       return;
     }
 
     const raw = safeGetItem("hairQuizState");
     if (!raw) {
       isRestoringRef.current = false;
+      hasCheckedSavedStateRef.current = true;
       return;
     }
 
     try {
-      // Set restoring flag to prevent persist effect from overwriting
-      isRestoringRef.current = true;
-      
       const parsed = JSON.parse(raw) as SavedQuizState;
       const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
 
@@ -177,6 +184,7 @@ export function HairQuiz() {
         };
         setShowResumePrompt(true);
         isRestoringRef.current = false;
+        hasCheckedSavedStateRef.current = true;
       } else if (hasAnyAnswers) {
         // If they have answers but haven't reached stage 2, automatically restore them
         // This handles the case where user answered the first question and refreshed
@@ -187,11 +195,13 @@ export function HairQuiz() {
         // Clear the restoring flag after a short delay to allow state to update
         setTimeout(() => {
           isRestoringRef.current = false;
+          hasCheckedSavedStateRef.current = true;
         }, 100);
       } else {
         // No answers at all, safe to clear
         safeRemoveItem("hairQuizState");
         isRestoringRef.current = false;
+        hasCheckedSavedStateRef.current = true;
       }
     } catch (error) {
       // If anything goes wrong, clear corrupted state
@@ -200,6 +210,7 @@ export function HairQuiz() {
       }
       safeRemoveItem("hairQuizState");
       isRestoringRef.current = false;
+      hasCheckedSavedStateRef.current = true;
     }
   }, [questions]);
 
@@ -212,11 +223,26 @@ export function HairQuiz() {
       return;
     }
 
+    // Don't persist until we've checked for saved state (prevents overwriting on initial mount)
+    if (!hasCheckedSavedStateRef.current && questions.length > 0) {
+      console.log("[Quiz] Skipping persist - haven't checked for saved state yet");
+      return;
+    }
+
     if (showResumePrompt) return;
 
     if (isComplete) {
       safeRemoveItem("hairQuizState");
       return;
+    }
+
+    // Don't save empty answers if there's saved state (wait for restore to complete)
+    if (Object.keys(answers).length === 0) {
+      const saved = safeGetItem("hairQuizState");
+      if (saved) {
+        console.log("[Quiz] Skipping persist - empty answers but saved state exists");
+        return;
+      }
     }
 
     // Only store what's sent to API: answers
@@ -226,7 +252,7 @@ export function HairQuiz() {
     };
 
     safeSetItem("hairQuizState", JSON.stringify(payload));
-  }, [answers, isComplete, showResumePrompt]);
+  }, [answers, isComplete, showResumePrompt, questions.length]);
 
   // Compute derived values (safe even if questions is empty)
   const currentQuestion = questions[currentIndex] || null;
