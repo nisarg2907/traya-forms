@@ -105,6 +105,7 @@ export function HairQuiz() {
   const [showAlreadyCompleted, setShowAlreadyCompleted] = useState(false);
   const [isCheckingUser, setIsCheckingUser] = useState(false);
   const savedStateRef = useRef<SavedQuizState | null>(null);
+  const isRestoringRef = useRef(false); // Flag to prevent persist during restore
 
   // On mount, if the quiz was submitted in this browser, show the completed screen
   useEffect(() => {
@@ -121,23 +122,34 @@ export function HairQuiz() {
 
     // If quiz is already submitted in this browser, don't show resume prompt
     const submitted = safeGetItem("hairQuizSubmitted");
-    if (submitted === "true") return;
+    if (submitted === "true") {
+      isRestoringRef.current = false;
+      return;
+    }
 
     const raw = safeGetItem("hairQuizState");
-    if (!raw) return;
+    if (!raw) {
+      isRestoringRef.current = false;
+      return;
+    }
 
     try {
+      // Set restoring flag to prevent persist effect from overwriting
+      isRestoringRef.current = true;
+      
       const parsed = JSON.parse(raw) as SavedQuizState;
       const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
 
       if (!parsed || typeof parsed.updatedAt !== "number" || !parsed.answers) {
         safeRemoveItem("hairQuizState");
+        isRestoringRef.current = false;
         return;
       }
 
       const isFresh = Date.now() - parsed.updatedAt <= tenDaysMs;
       if (!isFresh) {
         safeRemoveItem("hairQuizState");
+        isRestoringRef.current = false;
         return;
       }
 
@@ -164,16 +176,22 @@ export function HairQuiz() {
           updatedAt: parsed.updatedAt,
         };
         setShowResumePrompt(true);
+        isRestoringRef.current = false;
       } else if (hasAnyAnswers) {
         // If they have answers but haven't reached stage 2, automatically restore them
         // This handles the case where user answered the first question and refreshed
-        console.log("[Quiz] Auto-restoring saved answers (early stage)");
+        console.log("[Quiz] Auto-restoring saved answers (early stage)", parsed.answers);
         setAnswers(parsed.answers);
         setCurrentIndex(firstUnansweredIndex);
         // Don't remove the state - keep it so progress is preserved
+        // Clear the restoring flag after a short delay to allow state to update
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 100);
       } else {
         // No answers at all, safe to clear
         safeRemoveItem("hairQuizState");
+        isRestoringRef.current = false;
       }
     } catch (error) {
       // If anything goes wrong, clear corrupted state
@@ -181,12 +199,19 @@ export function HairQuiz() {
         console.error("Error parsing saved quiz state:", error);
       }
       safeRemoveItem("hairQuizState");
+      isRestoringRef.current = false;
     }
   }, [questions]);
 
   // Persist quiz progress while user is taking the quiz
   // Only store answers (what's sent to API) and updatedAt (for expiry)
   useEffect(() => {
+    // Don't persist if we're currently restoring state (prevents overwriting saved state)
+    if (isRestoringRef.current) {
+      console.log("[Quiz] Skipping persist - currently restoring state");
+      return;
+    }
+
     if (showResumePrompt) return;
 
     if (isComplete) {
