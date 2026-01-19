@@ -150,6 +150,9 @@ export function HairQuiz() {
         }
       }
 
+      // Check if user has any answers saved
+      const hasAnyAnswers = Object.keys(parsed.answers).length > 0;
+      
       // Only show resume prompt if user has progressed beyond the very first step
       // i.e. they have reached at least index 1 (second question or beyond)
       const hasReachedStage2 = firstUnansweredIndex >= 1;
@@ -161,8 +164,15 @@ export function HairQuiz() {
           updatedAt: parsed.updatedAt,
         };
         setShowResumePrompt(true);
+      } else if (hasAnyAnswers) {
+        // If they have answers but haven't reached stage 2, automatically restore them
+        // This handles the case where user answered the first question and refreshed
+        console.log("[Quiz] Auto-restoring saved answers (early stage)");
+        setAnswers(parsed.answers);
+        setCurrentIndex(firstUnansweredIndex);
+        // Don't remove the state - keep it so progress is preserved
       } else {
-        // If they haven't reached stage 2, clear the saved state and start fresh
+        // No answers at all, safe to clear
         safeRemoveItem("hairQuizState");
       }
     } catch (error) {
