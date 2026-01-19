@@ -16,6 +16,86 @@ type SavedQuizState = {
   updatedAt: number; // For expiry check (10 days)
 };
 
+// Helper function to check if localStorage is available
+const isLocalStorageAvailable = (): boolean => {
+  if (typeof window === "undefined") {
+    console.log("[localStorage] window is undefined (SSR)");
+    return false;
+  }
+  
+  try {
+    const test = "__localStorage_test__";
+    window.localStorage.setItem(test, test);
+    window.localStorage.removeItem(test);
+    console.log("[localStorage] ✅ Available and working");
+    return true;
+  } catch (error) {
+    console.error("[localStorage] ❌ Not available:", error);
+    return false;
+  }
+};
+
+// Safe localStorage getter
+const safeGetItem = (key: string): string | null => {
+  console.log(`[localStorage] Getting item: ${key}`);
+  
+  if (!isLocalStorageAvailable()) {
+    console.warn(`[localStorage] ⚠️ Cannot get ${key} - localStorage not available`);
+    return null;
+  }
+  
+  try {
+    const value = window.localStorage.getItem(key);
+    console.log(`[localStorage] ✅ Got ${key}:`, value ? `${value.substring(0, 50)}...` : "null");
+    return value;
+  } catch (error) {
+    console.error(`[localStorage] ❌ Error getting ${key}:`, error);
+    return null;
+  }
+};
+
+// Safe localStorage setter
+const safeSetItem = (key: string, value: string): boolean => {
+  console.log(`[localStorage] Setting item: ${key}`, `(value length: ${value.length})`);
+  
+  if (!isLocalStorageAvailable()) {
+    console.warn(`[localStorage] ⚠️ Cannot set ${key} - localStorage not available`);
+    return false;
+  }
+  
+  try {
+    window.localStorage.setItem(key, value);
+    console.log(`[localStorage] ✅ Successfully set ${key}`);
+    return true;
+  } catch (error) {
+    console.error(`[localStorage] ❌ Error setting ${key}:`, error);
+    // Check if it's a quota error
+    if (error instanceof DOMException && error.code === 22) {
+      console.error(`[localStorage] 💾 Storage quota exceeded!`);
+    }
+    return false;
+  }
+};
+
+// Safe localStorage remover
+const safeRemoveItem = (key: string): boolean => {
+  console.log(`[localStorage] Removing item: ${key}`);
+  
+  if (!isLocalStorageAvailable()) {
+    console.warn(`[localStorage] ⚠️ Cannot remove ${key} - localStorage not available`);
+    return false;
+  }
+  
+  try {
+    window.localStorage.removeItem(key);
+    console.log(`[localStorage] ✅ Successfully removed ${key}`);
+    return true;
+  } catch (error) {
+    console.error(`[localStorage] ❌ Error removing ${key}:`, error);
+    return false;
+  }
+};
+
 export function HairQuiz() {
   const { questions, categories, loading, error } = useQuizData();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -28,42 +108,36 @@ export function HairQuiz() {
 
   // On mount, if the quiz was submitted in this browser, show the completed screen
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    try {
-      const submitted = window.localStorage.getItem("hairQuizSubmitted");
-      if (submitted === "true") {
-        setShowAlreadyCompleted(true);
-      }
-    } catch {
-      // ignore storage errors
+    const submitted = safeGetItem("hairQuizSubmitted");
+    if (submitted === "true") {
+      setShowAlreadyCompleted(true);
     }
   }, []);
 
   // Load saved quiz state from localStorage (up to 10 days old)
   // Only show resume prompt if user has reached at least section 2 (Hair Health)
   useEffect(() => {
-    if (typeof window === "undefined" || questions.length === 0) return;
+    if (questions.length === 0) return;
+
+    // If quiz is already submitted in this browser, don't show resume prompt
+    const submitted = safeGetItem("hairQuizSubmitted");
+    if (submitted === "true") return;
+
+    const raw = safeGetItem("hairQuizState");
+    if (!raw) return;
 
     try {
-      // If quiz is already submitted in this browser, don't show resume prompt
-      const submitted = window.localStorage.getItem("hairQuizSubmitted");
-      if (submitted === "true") return;
-
-      const raw = window.localStorage.getItem("hairQuizState");
-      if (!raw) return;
-
       const parsed = JSON.parse(raw) as SavedQuizState;
       const tenDaysMs = 10 * 24 * 60 * 60 * 1000;
 
       if (!parsed || typeof parsed.updatedAt !== "number" || !parsed.answers) {
-        window.localStorage.removeItem("hairQuizState");
+        safeRemoveItem("hairQuizState");
         return;
       }
 
       const isFresh = Date.now() - parsed.updatedAt <= tenDaysMs;
       if (!isFresh) {
-        window.localStorage.removeItem("hairQuizState");
+        safeRemoveItem("hairQuizState");
         return;
       }
 
@@ -89,40 +163,34 @@ export function HairQuiz() {
         setShowResumePrompt(true);
       } else {
         // If they haven't reached stage 2, clear the saved state and start fresh
-        window.localStorage.removeItem("hairQuizState");
+        safeRemoveItem("hairQuizState");
       }
-    } catch {
+    } catch (error) {
       // If anything goes wrong, clear corrupted state
-      try {
-        window.localStorage.removeItem("hairQuizState");
-      } catch {
-        // ignore
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error parsing saved quiz state:", error);
       }
+      safeRemoveItem("hairQuizState");
     }
   }, [questions]);
 
   // Persist quiz progress while user is taking the quiz
   // Only store answers (what's sent to API) and updatedAt (for expiry)
   useEffect(() => {
-    if (typeof window === "undefined") return;
     if (showResumePrompt) return;
 
-    try {
-      if (isComplete) {
-        window.localStorage.removeItem("hairQuizState");
-        return;
-      }
-
-      // Only store what's sent to API: answers
-      const payload: SavedQuizState = {
-        answers,
-        updatedAt: Date.now(),
-      };
-
-      window.localStorage.setItem("hairQuizState", JSON.stringify(payload));
-    } catch {
-      // ignore storage errors
+    if (isComplete) {
+      safeRemoveItem("hairQuizState");
+      return;
     }
+
+    // Only store what's sent to API: answers
+    const payload: SavedQuizState = {
+      answers,
+      updatedAt: Date.now(),
+    };
+
+    safeSetItem("hairQuizState", JSON.stringify(payload));
   }, [answers, isComplete, showResumePrompt]);
 
   // Compute derived values (safe even if questions is empty)
@@ -182,16 +250,12 @@ export function HairQuiz() {
       });
 
       // Clear localStorage after successful submission
-      if (response.ok && typeof window !== "undefined") {
-        try {
-          window.localStorage.removeItem("hairQuizState");
-          // Also clear quizSessionId if it exists
-          window.localStorage.removeItem("quizSessionId");
-          // Mark quiz as submitted in this browser
-          window.localStorage.setItem("hairQuizSubmitted", "true");
-        } catch {
-          // ignore storage errors
-        }
+      if (response.ok) {
+        safeRemoveItem("hairQuizState");
+        // Also clear quizSessionId if it exists
+        safeRemoveItem("quizSessionId");
+        // Mark quiz as submitted in this browser
+        safeSetItem("hairQuizSubmitted", "true");
       }
     } catch (error) {
       console.error("Failed to submit form:", error);
@@ -268,15 +332,9 @@ export function HairQuiz() {
     setIsComplete(false);
     setShowResumePrompt(false);
     setShowAlreadyCompleted(false);
-    if (typeof window !== "undefined") {
-      try {
-        window.localStorage.removeItem("hairQuizState");
-        window.localStorage.removeItem("hairQuizSubmitted");
-        window.localStorage.removeItem("quizSessionId");
-      } catch {
-        // ignore
-      }
-    }
+    safeRemoveItem("hairQuizState");
+    safeRemoveItem("hairQuizSubmitted");
+    safeRemoveItem("quizSessionId");
   }, []);
 
   const handleContinueQuiz = useCallback(() => {
