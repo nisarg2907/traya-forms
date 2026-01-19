@@ -1,6 +1,6 @@
 "use client";
 
-import type { QuizQuestion } from "@/lib/quiz-data";
+import type { QuizQuestion } from "@/lib/use-quiz-data";
 import { cn } from "@/lib/utils";
 
 interface QuestionSingleProps {

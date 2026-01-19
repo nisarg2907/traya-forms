@@ -8,9 +8,11 @@ const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Hair Quiz - Traya Health',
-  description: 'Take our free hair quiz to get a personalized hair care plan from Traya experts.',
+  title: 'Traya Dx Hair Diagnosis',
+  description:
+    'Traya combines dermatology, Ayurveda, and nutrition to build customised hair loss plans that target the root cause delivering assured results.',
   generator: 'v0.app',
+  metadataBase: new URL('https://traya.health'),
   icons: {
     icon: [
       {
@@ -27,6 +29,30 @@ export const metadata: Metadata = {
       },
     ],
     apple: '/apple-icon.png',
+  },
+  openGraph: {
+    siteName: 'Traya',
+    url: 'https://traya.health/pages/result4',
+    title: 'Hair Test Result',
+    type: 'website',
+    description:
+      'Traya combines dermatology, Ayurveda, and nutrition to build customised hair loss plans that target the root cause delivering assured results.',
+    images: [
+      {
+        url: 'https://traya.health/cdn/shop/files/Traya_Logo_f6bd592d-1eed-4a4f-8933-63838602ede6.jpg?v=1611833411',
+        width: 603,
+        height: 189,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Hair Test Result',
+    description:
+      'Traya combines dermatology, Ayurveda, and nutrition to build customised hair loss plans that target the root cause delivering assured results.',
+    images: [
+      'https://traya.health/cdn/shop/files/Traya_Logo_f6bd592d-1eed-4a4f-8933-63838602ede6.jpg?v=1611833411',
+    ],
   },
 }
 

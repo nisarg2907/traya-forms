@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useState, useEffect } from "react";
-import type { QuizQuestion } from "@/lib/quiz-data";
+import type { QuizQuestion } from "@/lib/use-quiz-data";
 
 interface QuestionTextProps {
   question: QuizQuestion;

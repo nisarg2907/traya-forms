@@ -7,35 +7,112 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model FormSubmission {
-  id        String   @id @default(uuid())
+// Dynamic Quiz Models
 
-  // About You section
-  name      String
-  gender    String   // 'male' | 'female'
-  age       Int
-  phone     String
-
-  // Hair Health section
-  hairLossStage      String   // e.g., 'stage-1', 'stage-2', etc.
-  familyHistory      String   // 'mother' | 'father' | 'both' | 'none'
-  dandruff           String   // 'no' | 'mild' | 'heavy' | 'diagnosed'
-  supplements        String   // 'yes' | 'no'
-
-  // Internal Health section
-  sleep              String   // 'peaceful' | 'disturbed' | 'difficulty'
-  stress             String   // 'none' | 'low' | 'moderate' | 'high'
-  constipation       String   // 'no' | 'yes' | 'unable' | 'ibs'
-  energyLevels       String   // 'always-high' | 'low-morning' | 'low-afternoon' | 'low-evening' | 'always-low'
-  gasAcidityBloating String   // 'no' | 'sometimes' | 'often'
-
-  // Scalp Assessment section
-  scalpPhoto         String?  // Path to uploaded file
-
-  // Metadata
-  submittedAt        DateTime @default(now())
-  ipAddress          String?
-
-  @@map("form_submissions")
+enum QuestionType {
+  TEXT
+  NUMBER
+  SINGLE      // Single choice
+  MULTIPLE    // Multiple choice
+  GENDER
+  BOOLEAN     // Yes/No
+  IMAGE       // Image selection (like hair loss stages)
+  UPLOAD      // File upload
 }
 
+model Category {
+  id          String     @id @default(uuid())
+  title       String     // e.g., "About", "Hair"
+  subtitle    String     // e.g., "You", "Health"
+  order       Int        @default(0) // Display order
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  questions   Question[]
+
+  @@map("categories")
+}
+
+model Question {
+  id            String          @id @default(uuid())
+  question      String          // The question text
+  type          QuestionType
+  section       Int             // Section number (1, 2, 3, 4)
+  order         Int             @default(0) // Order within section
+  placeholder   String?
+  disclaimer    String?
+  isRequired    Boolean         @default(true)
+  
+  categoryId    String?
+  category      Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  options       QuestionOption[]
+  answers       Answer[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([section, order])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id          String    @id @default(uuid())
+  questionId  String
+  question    Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label       String
+  subLabel    String?
+  value       String    // The option value (e.g., "stage-1", "yes", "no")
+  images      String[]  // Array of image URLs for image-type questions
+  order       Int       @default(0)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("question_options")
+}
+
+model User {
+  id          String          @id @default(uuid())
+  phone       String          @unique // Primary identifier
+  email       String?         @unique
+  name        String?
+  
+  answers     Answer[]
+  
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@map("users")
+}
+
+enum AnswerType {
+  STRING      // For text inputs
+  NUMBER      // For number inputs
+  BOOLEAN     // For yes/no
+  SINGLE      // Single choice answer
+  MULTIPLE    // Multiple choice answers (array)
+  IMAGE_URL   // For uploaded images
+}
+
+model Answer {
+  id              String          @id @default(uuid())
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  questionId      String
+  question        Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  
+  // Flexible answer storage
+  answerType      AnswerType
+  stringValue     String?         // For TEXT, SINGLE, MULTIPLE (JSON string for arrays)
+  numberValue     Int?
+  booleanValue    Boolean?
+  imageUrl        String?         // For uploaded images
+  
+  // Metadata
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([userId, questionId]) // One answer per user per question
+  @@map("answers")
+}

@@ -1,14 +1,27 @@
 "use client";
 
-import { sections } from "@/lib/quiz-data";
 import { cn } from "@/lib/utils";
+
+interface Section {
+  id: number;
+  title: string;
+  subtitle: string;
+}
 
 interface SectionTabsProps {
   currentSection: number;
   progress: number;
+  sections?: Section[];
 }
 
-export function SectionTabs({ currentSection, progress }: SectionTabsProps) {
+const defaultSections: Section[] = [
+  { id: 1, title: "About", subtitle: "You" },
+  { id: 2, title: "Hair", subtitle: "Health" },
+  { id: 3, title: "Internal", subtitle: "Health" },
+  { id: 4, title: "Scalp", subtitle: "Assessment" },
+];
+
+export function SectionTabs({ currentSection, progress, sections = defaultSections }: SectionTabsProps) {
   // Different active colors for different sections
   const getActiveColor = (sectionId: number) => {
     switch (sectionId) {
@@ -30,8 +43,10 @@ export function SectionTabs({ currentSection, progress }: SectionTabsProps) {
       {/* Section tabs */}
       <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3">
         {sections.map((section) => {
-          const isActive = section.id === currentSection;
-          const isPast = section.id < currentSection;
+          // When progress is 100%, all tabs should show as completed
+          const isCompleted = progress === 100;
+          const isActive = !isCompleted && section.id === currentSection;
+          const isPast = isCompleted || section.id < currentSection;
 
           return (
             <div
@@ -41,14 +56,14 @@ export function SectionTabs({ currentSection, progress }: SectionTabsProps) {
                 isActive
                   ? getActiveColor(section.id)
                   : isPast
-                    ? "bg-[#dde6d0]"
+                    ? getActiveColor(section.id) // Use active color for completed sections
                     : "bg-[#e8eae5]"
               )}
             >
               <p
                 className={cn(
                   "text-[13px] sm:text-[15px] leading-5 sm:leading-6 font-[400]",
-                  isActive ? "text-white" : isPast ? "text-[#4a5a4a]" : "text-[#6b7280]"
+                  (isActive || isPast) ? "text-white" : "text-[#6b7280]"
                 )}
               >
                 {section.title}
@@ -56,7 +71,7 @@ export function SectionTabs({ currentSection, progress }: SectionTabsProps) {
               <p
                 className={cn(
                   "text-[13px] sm:text-[15px] leading-5 sm:leading-6 font-[400]",
-                  isActive ? "text-white" : isPast ? "text-[#4a5a4a]" : "text-[#6b7280]"
+                  (isActive || isPast) ? "text-white" : "text-[#6b7280]"
                 )}
               >
                 {section.subtitle}
@@ -73,7 +88,12 @@ export function SectionTabs({ currentSection, progress }: SectionTabsProps) {
         </p>
         <div className="mx-auto bg-[#ebebeb] w-full md:w-[65%] h-[5px] xl:h-[8px] mt-0.5 rounded-[5px] overflow-hidden">
           <div
-            className="w-full h-[5px] xl:h-[8px] bg-[#9bb96f] rounded-[5px] transition-all duration-500 ease-out"
+            className={cn(
+              "w-full h-[5px] xl:h-[8px] rounded-[5px] transition-all duration-500 ease-out",
+              progress === 100 
+                ? getActiveColor(sections.length) // Use last section color when 100%
+                : getActiveColor(currentSection) // Use current section color
+            )}
             style={{ width: `${progress}%` }}
           />
         </div>
